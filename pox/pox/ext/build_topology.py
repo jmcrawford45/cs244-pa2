@@ -67,12 +67,10 @@ class JellyFishTop(Topo):
 
     def connect_servers(self, switches, servers):
         # Add servers
-        switch_num = 0
-        s = switches[switch_num]
         for server in servers:
+            s = random.choice(switches)
             while s.ports_in_use >= self.rack_height:
-                switch_num += 1
-                s = switches[switch_num]
+                s = random.choice(switches)
             self.addLink(server, s.switch)
             self.graph.add_edge(s.switch, server, weight=1)
             s.ports_in_use += 1
@@ -123,34 +121,37 @@ def main():
     shortest8 = dict()
     ecmp8 = dict()
     ecmp64 = dict()
-    for e in g.edges():
+    switches = [s for s in topo.switches()]
+    for e in topo.links():
         shortest8[e] = ecmp8[e] = ecmp64[e] = 0
-    hosts = [s for s in topo.hosts()]
-    traffic = derangement([s for s in topo.hosts()], [s for s in topo.hosts()])
-    for i in tqdm(range(len(hosts))):
-        paths = ksp(topo.graph, 
-            hosts[i], traffic[i], 
-            64, 'weight')
-        lengths = [len(p) for p in paths]
-        shortest = len([l for l in lengths if l == lengths[0]])
-        ecmp8_count, ecmp64_count = min(shortest, 8), min(shortest, 64)
-        for path in paths[:8]:
-            for i in range(0, len(path)-1):
-                if (path[i], path[i+1]) in shortest8:
-                    shortest8[(path[i], path[i+1])] += 1
-                else:
-                    shortest8[(path[i+1], path[i])] += 1
-        for path in paths[:ecmp8_count]:
-            for i in range(0, len(path)-1):
-                if (path[i], path[i+1]) in ecmp8:
-                    ecmp8[(path[i], path[i+1])] += 1
-                else:
-                    ecmp8[(path[i+1], path[i])] += 1
-        for path in paths[:ecmp64_count]:
-            if (path[i], path[i+1]) in ecmp64:
-                ecmp64[(path[i], path[i+1])] += 1
-            else:
-                ecmp64[(path[i+1], path[i])] += 1
+    # I've surmised that server-TOR connections don't count as links
+    for switch_num in tqdm(range(len(switches))):
+        for r in range(topo.rack_height):
+            paths = ksp(copy.deepcopy(topo.graph), 
+                switches[switch_num],
+                switches[(switch_num+r+1)%len(switches)], 
+                64, 'weight')
+            lengths = [len(p) for p in paths]
+            shortest = len([l for l in lengths if l == lengths[0]])
+            ecmp8_count, ecmp64_count = min(shortest, 8), min(shortest, 64)
+            for path in paths[:8]:
+                for i in range(0, len(path)-1):
+                    if (path[i], path[i+1]) in shortest8:
+                        shortest8[(path[i], path[i+1])] += 1
+                    else:
+                        shortest8[(path[i+1], path[i])] += 1
+            for path in paths[:ecmp8_count]:
+                for i in range(0, len(path)-1):
+                    if (path[i], path[i+1]) in ecmp8:
+                        ecmp8[(path[i], path[i+1])] += 1
+                    else:
+                        ecmp8[(path[i+1], path[i])] += 1
+            for path in paths[:ecmp64_count]:
+                for i in range(0, len(path)-1):
+                    if (path[i], path[i+1]) in ecmp64:
+                        ecmp64[(path[i], path[i+1])] += 1
+                    else:
+                        ecmp64[(path[i+1], path[i])] += 1
     table_9(shortest8, ecmp8, ecmp64)
     # net = Mininet(
     #topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
