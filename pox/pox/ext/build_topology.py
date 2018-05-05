@@ -33,7 +33,7 @@ class Switch(object):
 class JellyFishTop(Topo):
 
     def __init__(self, num_servers=686,
-                rack_height=7, ports_per_switch=48):
+                rack_height=4, ports_per_switch=36):
         self.num_servers = num_servers
         self.rack_height = rack_height
         self.ports_per_switch = ports_per_switch
