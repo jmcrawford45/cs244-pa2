@@ -20,6 +20,7 @@ from collections import defaultdict
 import networkx
 import itertools
 import copy
+from tqdm import tqdm
 
 
 class Switch(object):
@@ -32,13 +33,13 @@ class Switch(object):
 class JellyFishTop(Topo):
 
     def __init__(self, num_servers=686,
-                rack_height=5, ports_per_switch=24, linked=False):
+                rack_height=7, ports_per_switch=48):
         self.num_servers = num_servers
         self.rack_height = rack_height
         self.ports_per_switch = ports_per_switch
         self.num_switches = int(math.ceil(float(num_servers)/rack_height))
         self.graph = networkx.Graph()
-        self.linked = linked
+        self.switch_links = 0
         Topo.__init__(self)
 
     def build(self):
@@ -64,7 +65,7 @@ class JellyFishTop(Topo):
                 return s1, s2
         return None
 
-    def add_links(self, switches, servers):
+    def connect_servers(self, switches, servers):
         # Add servers
         switch_num = 0
         s = switches[switch_num]
@@ -72,25 +73,30 @@ class JellyFishTop(Topo):
             while s.ports_in_use >= self.rack_height:
                 switch_num += 1
                 s = switches[switch_num]
-            if self.linked:
-                self.addLink(server, s.switch)
+            self.addLink(server, s.switch)
             self.graph.add_edge(s.switch, server, weight=1)
             s.ports_in_use += 1
+
+    def connect_switches(self, switches):
         while True:
             e = self.get_random_edge(switches)
             if e == None:
                 break
             s1,s2 = e
-            if self.linked:
-                self.addLink(s1.switch, s2.switch)
+            self.addLink(s1.switch, s2.switch)
             self.graph.add_edge(s1.switch, s2.switch, weight=1)
+            self.switch_links += 1
             self.switch_map[s1].append(s2)
             self.switch_map[s2].append(s1)
             s1.ports_in_use += 1
             s2.ports_in_use += 1
-        print 'Topology: {} hosts, {} switches, {} links'.format(
-            len(self.hosts()), len(self.switches()), len(self.links()))
-        self.graph = self.graph.to_undirected()
+
+    def add_links(self, switches, servers):
+        self.connect_servers(switches, servers)
+        self.connect_switches(switches)
+        print 'Topology: {} hosts, {} switches, {} links, {} switch links'.format(
+            len(self.hosts()), len(self.switches()), len(self.links()),
+            self.switch_links)
         print len(self.graph.edges())
 
 
@@ -103,7 +109,7 @@ def experiment(net):
         # net.pingAll()
         net.stop()
 
-def derangement(self, l, original):
+def derangement(l, original):
     random.shuffle(l)
     for i in range(len(l)):
         if l[i] == original[i]:
@@ -114,27 +120,37 @@ def main():
     topo = JellyFishTop()
     print 'Generate table 9 data'
     g = topo.graph
-    shortest8 = defaultdict(int)
-    ecmp8 = defaultdict(int)
-    ecmp64 = defaultdict(int)
-    switches = topo.switches()
-    for i in range(len(switches)):
-        for r in range(topo.rack_height):
-            paths = ksp(topo.graph, 
-                switches[i], switches[(i+r+1)%len(switches)], 
-                64, 'weight')
-            lengths = [len(p) for p in paths]
-            shortest = len([l for l in lengths if l == lengths[0]])
-            ecmp8_count, ecmp64_count = min(shortest, 8), min(shortest, 64)
-            for path in paths[:8]:
-                for i in range(0, len(path)-1):
+    shortest8 = dict()
+    ecmp8 = dict()
+    ecmp64 = dict()
+    for e in g.edges():
+        shortest8[e] = ecmp8[e] = ecmp64[e] = 0
+    hosts = [s for s in topo.hosts()]
+    traffic = derangement([s for s in topo.hosts()], [s for s in topo.hosts()])
+    for i in tqdm(range(len(hosts))):
+        paths = ksp(topo.graph, 
+            hosts[i], traffic[i], 
+            64, 'weight')
+        lengths = [len(p) for p in paths]
+        shortest = len([l for l in lengths if l == lengths[0]])
+        ecmp8_count, ecmp64_count = min(shortest, 8), min(shortest, 64)
+        for path in paths[:8]:
+            for i in range(0, len(path)-1):
+                if (path[i], path[i+1]) in shortest8:
                     shortest8[(path[i], path[i+1])] += 1
-            for path in paths[:ecmp8_count]:
-                for i in range(0, len(path)-1):
+                else:
+                    shortest8[(path[i+1], path[i])] += 1
+        for path in paths[:ecmp8_count]:
+            for i in range(0, len(path)-1):
+                if (path[i], path[i+1]) in ecmp8:
                     ecmp8[(path[i], path[i+1])] += 1
-            for path in paths[:ecmp64_count]:
-                for i in range(0, len(path)-1):
-                    ecmp64[(path[i], path[i+1])] += 1
+                else:
+                    ecmp8[(path[i+1], path[i])] += 1
+        for path in paths[:ecmp64_count]:
+            if (path[i], path[i+1]) in ecmp64:
+                ecmp64[(path[i], path[i+1])] += 1
+            else:
+                ecmp64[(path[i+1], path[i])] += 1
     table_9(shortest8, ecmp8, ecmp64)
     # net = Mininet(
     #topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
