@@ -83,14 +83,15 @@ class Tutorial (object):
     Implement switch-like behavior.
     """
 
-    """ # DELETE THIS LINE TO START WORKING ON THIS (AND THE ONE BELOW!) #
-
     # Here's some psuedocode to start you off implementing a learning
     # switch.  You'll need to rewrite it as real Python code.
 
     # Learn the port for the source MAC
-    self.mac_to_port ... <add or update entry>
-
+    print dir(packet)
+    print dir(packet_in)
+    quit()
+    #self.mac_to_port[] <add or update entry>
+    '''
     if the port associated with the destination MAC of the packet is known:
       # Send packet out the associated port
       self.resend_packet(packet_in, ...)
@@ -114,10 +115,7 @@ class Tutorial (object):
     else:
       # Flood the packet out everything but the input port
       # This part looks familiar, right?
-      self.resend_packet(packet_in, of.OFPP_ALL)
-
-    """ # DELETE THIS LINE TO START WORKING ON THIS #
-
+      self.resend_packet(packet_in, of.OFPP_ALL)'''
 
   def _handle_PacketIn (self, event):
     """
@@ -136,9 +134,9 @@ class Tutorial (object):
     print "Src: " + str(packet.src)
     print "Dest: " + str(packet.dst)
     print "Event port: " + str(event.port)
-    self.act_like_hub(packet, packet_in)
+    # self.act_like_hub(packet, packet_in)
     log.info("packet in")
-    #self.act_like_switch(packet, packet_in)
+    self.act_like_switch(packet, packet_in)
 
 
 

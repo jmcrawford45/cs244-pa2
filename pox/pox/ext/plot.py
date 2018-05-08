@@ -11,5 +11,5 @@ def table_9(shortest8, ecmp8, ecmp64):
     plt.ylabel('# Distinct Paths Link is on')
     plt.xlabel('Rank of Link')
     plt.legend(['8 Shortest Paths', '8-Way ECMP', '64-Way ECMP'], loc='upper left')
-    plt.show()
+    plt.savefig('figure_9.png')
     
