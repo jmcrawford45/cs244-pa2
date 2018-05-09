@@ -32,8 +32,8 @@ class Switch(object):
 
 class JellyFishTop(Topo):
 
-    def __init__(self, num_servers=686,
-                rack_height=5, ports_per_switch=36):
+    def __init__(self, num_servers=100,
+                rack_height=5, ports_per_switch=6):
         self.num_servers = num_servers
         self.rack_height = rack_height
         self.ports_per_switch = ports_per_switch
@@ -43,7 +43,18 @@ class JellyFishTop(Topo):
         Topo.__init__(self)
 
     def build(self):
-        switches, servers = list(), list()
+	leftHost = self.addHost( 'h1' )
+ 	rightHost = self.addHost( 'h2' )
+	leftSwitch = self.addSwitch( 's3' )
+	rightSwitch = self.addSwitch( 's4' )
+
+            # Add links
+	self.addLink(rightHost, rightSwitch)
+        self.addLink( leftHost, leftSwitch )
+        self.addLink( leftSwitch, rightSwitch )
+        self.addLink( rightSwitch, rightHost )
+        return
+	switches, servers = list(), list()
         self.switch_map = defaultdict(list)
         for i in range(0, self.num_switches):
             switches.append(Switch(self.addSwitch('s%s' % i)))
@@ -103,8 +114,8 @@ class JellyFishTop(Topo):
 def experiment(net):
         print 'start experiment'
         net.start()
-        # sleep(3)
-        # net.pingAll()
+        sleep(3)
+        net.pingAll()
         net.stop()
 
 def derangement(l, original):
